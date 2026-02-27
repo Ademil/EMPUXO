@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>APavan_GeoEmpuxo — Cálculo de Contenção Geotécnica</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Variables ─────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:      #0d1117;
+  --panel:   #161b22;
+  --border:  #30363d;
+  --accent:  #f0a500;
+  --accent2: #4fc3f7;
+  --accent3: #81c784;
+  --danger:  #ef5350;
+  --text:    #e6edf3;
+  --muted:   #8b949e;
+  --mono:    'Space Mono', monospace;
+  --sans:    'Barlow Condensed', sans-serif;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+.header {
+  background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+  border-bottom: 2px solid var(--accent);
+  padding: 16px 32px;
+  display: flex; align-items: center; gap: 16px;
+  position: sticky; top: 0; z-index: 100;
+}
+.header-icon { font-size: 32px; }
+.header-title { font-size: 28px; font-weight: 900; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; }
+.header-sub { font-size: 13px; color: var(--muted); letter-spacing: 1px; font-family: var(--mono); }
+
+/* ── Layout ────────────────────────────────────────────────────────────────── */
+.main { display: grid; grid-template-columns: 380px 1fr; min-height: calc(100vh - 72px); }
+
+/* ── Sidebar ───────────────────────────────────────────────────────────────── */
+.sidebar {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  position: sticky; top: 72px; height: calc(100vh - 72px);
+}
+.tab-bar { display: flex; border-bottom: 1px solid var(--border); background: var(--bg); }
+.tab-btn {
+  flex: 1; padding: 12px 8px; background: none; border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted); cursor: pointer; font-family: var(--sans);
+  font-size: 13px; font-weight: 600; letter-spacing: 1px;
+  text-transform: uppercase; transition: all 0.2s;
+}
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--panel); }
+.tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,0.03); }
+
+.section { padding: 16px; border-bottom: 1px solid var(--border); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+.section-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;
+}
+.section-title::before {
+  content: ''; display: block; width: 3px; height: 14px;
+  background: var(--accent); border-radius: 2px; flex-shrink: 0;
+}
+
+/* ── Form Fields ───────────────────────────────────────────────────────────── */
+.field { margin-bottom: 10px; }
+.field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; letter-spacing: 0.5px; font-family: var(--mono); }
+.field input, .field select {
+  width: 100%; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--mono); font-size: 13px; border-radius: 4px; outline: none;
+  transition: border-color 0.2s;
+}
+.field input:focus, .field select:focus { border-color: var(--accent2); }
+.field select option { background: var(--bg); }
+.field-hint { font-size: 10px; color: var(--muted); margin-top: 4px; }
+.field-hint.blue { color: var(--accent2); }
+
+.toggle-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.toggle-opt {
+  padding: 6px 12px; border: 1px solid var(--border); background: var(--bg);
+  color: var(--muted); cursor: pointer; font-family: var(--sans); font-size: 12px;
+  font-weight: 600; letter-spacing: 1px; border-radius: 4px; transition: all 0.15s;
+}
+.toggle-opt.sel { background: rgba(240,165,0,0.15); color: var(--accent); border-color: var(--accent); }
+
+.formula-box {
+  background: rgba(79,195,247,0.05); border: 1px solid rgba(79,195,247,0.2);
+  border-radius: 6px; padding: 12px; margin-bottom: 12px;
+  font-family: var(--mono); font-size: 12px; color: var(--muted); line-height: 1.9;
+}
+.formula-box .eq { color: var(--accent2); }
+
+.warn-box {
+  background: rgba(239,83,80,0.08); border: 1px solid rgba(239,83,80,0.3);
+  border-radius: 6px; padding: 10px 12px; font-size: 12px; color: #ef9a9a; margin-top: 8px;
+  display: flex; gap: 8px; align-items: flex-start;
+}
+.warn-box.hidden { display: none; }
+
+/* ── Buttons ───────────────────────────────────────────────────────────────── */
+.btn-wrap { padding: 16px; }
+.calc-btn {
+  width: 100%; padding: 14px; background: var(--accent); border: none; color: #000;
+  font-family: var(--sans); font-size: 16px; font-weight: 900; letter-spacing: 2px;
+  text-transform: uppercase; cursor: pointer; border-radius: 4px; transition: all 0.2s;
+}
+.calc-btn:hover { background: #ffd54f; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(240,165,0,0.3); }
+.calc-btn:active { transform: translateY(0); }
+
+.pdf-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 20px; background: transparent;
+  border: 1.5px solid var(--accent); color: var(--accent);
+  font-family: var(--sans); font-size: 14px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; cursor: pointer; border-radius: 4px; transition: all 0.2s;
+}
+.pdf-btn:hover:not(:disabled) { background: rgba(240,165,0,0.12); box-shadow: 0 0 16px rgba(240,165,0,0.2); transform: translateY(-1px); }
+.pdf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Content Area ──────────────────────────────────────────────────────────── */
+.content { padding: 24px; overflow-y: auto; }
+
+.no-result {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 400px; color: var(--muted); gap: 12px;
+}
+.no-result-icon { font-size: 64px; opacity: 0.3; }
+.no-result-text { font-size: 15px; letter-spacing: 1px; font-family: var(--mono); }
+.no-result.hidden { display: none; }
+
+.results-area { display: none; }
+.results-area.visible { display: block; }
+
+/* ── Result Header Row ─────────────────────────────────────────────────────── */
+.result-header-row {
+  margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 3px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  font-family: var(--mono);
+}
+.badge-rankine { background: rgba(79,195,247,0.15); color: var(--accent2); border: 1px solid rgba(79,195,247,0.3); }
+.badge-coulomb { background: rgba(240,165,0,0.15); color: var(--accent); border: 1px solid rgba(240,165,0,0.3); }
+.result-params { font-size: 12px; color: var(--muted); font-family: var(--mono); flex: 1; }
+.ml-auto { margin-left: auto; }
+
+/* ── Result Cards ──────────────────────────────────────────────────────────── */
+.results-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+.result-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  padding: 14px; position: relative; overflow: hidden;
+}
+.result-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; background: var(--accent2);
+}
+.result-card.yellow::before { background: var(--accent); }
+.result-card.green::before  { background: var(--accent3); }
+.result-card.red::before    { background: var(--danger); }
+.result-card.blue::before   { background: var(--accent2); }
+.rc-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; font-family: var(--mono); }
+.rc-value { font-size: 26px; font-weight: 700; font-family: var(--mono); color: var(--text); margin: 4px 0; }
+.rc-unit  { font-size: 11px; color: var(--muted); }
+
+/* ── Diagrams ──────────────────────────────────────────────────────────────── */
+.diagram-wrap {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+  padding: 16px; margin-bottom: 16px;
+}
+.diagram-title {
+  font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--accent2); margin-bottom: 12px; font-family: var(--mono);
+}
+.canvas-wrap { width: 100%; overflow-x: auto; }
+canvas { border-radius: 6px; display: block; max-width: 100%; }
+.legend { margin-top: 8px; display: flex; gap: 16px; flex-wrap: wrap; }
+.legend span { font-size: 11px; font-family: var(--mono); }
+
+/* ── Pressure Table ────────────────────────────────────────────────────────── */
+.pressure-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; margin-top: 8px; }
+.pressure-table th {
+  background: var(--bg); color: var(--muted); padding: 6px 10px;
+  text-align: left; font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+}
+.pressure-table td { padding: 6px 10px; border-top: 1px solid var(--border); color: var(--text); }
+.pressure-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* ── Responsive ────────────────────────────────────────────────────────────── */
+@media (max-width: 780px) {
+  .main { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; }
+  .header { padding: 12px 16px; }
+  .header-title { font-size: 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────────────────────── -->
+<header class="header">
+  <div class="header-icon">AP_🏗️</div>
+  <div>
+    <div class="header-title">APavan_GeoEmpuxo</div>
+    <div class="header-sub">Cálculo de Pressões Laterais &amp; Empuxo de Terra · Rankine · Coulomb</div>
+  </div>
+</header>
+
+<!-- ── Main Layout ─────────────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+
+    <!-- Theory selector -->
+    <div class="section">
+      <div class="section-title">Teoria</div>
+      <div class="toggle-row">
+        <button class="toggle-opt sel" id="btn-rankine" onclick="setTheory('rankine')">Rankine</button>
+        <button class="toggle-opt"     id="btn-coulomb" onclick="setTheory('coulomb')">Coulomb</button>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('geo',this)">Geometria</button>
+      <button class="tab-btn"        onclick="switchTab('solo',this)">Solo</button>
+      <button class="tab-btn"        onclick="switchTab('agua',this)">Água</button>
+    </div>
+
+    <!-- Tab: Geometria -->
+    <div id="tab-geo" class="tab-content active">
+      <div class="section">
+        <div class="section-title">Estrutura de Arrimo</div>
+        <div class="field">
+          <label>Altura do Muro H <span style="font-size:10px;color:var(--muted)">(m)</span></label>
+          <input type="number" id="inp-H" value="5" min="0.5" max="30" step="0.1">
+        </div>
+        <div class="field">
+          <label>Inclinação do Terrapleno i <span style="font-size:10px;color:var(--muted)">(°)</span></label>
+          <input type="number" id="inp-i" value="0" min="0" max="35" step="1" oninput="checkInclination()">
+          <div class="warn-box hidden" id="warn-incl">⚠ i não pode ser maior que φ na teoria de Rankine</div>
+        </div>
+      </div>
+      <!-- Coulomb extras -->
+      <div id="coulomb-extras" class="section" style="display:none;">
+        <div class="section-title">Parâmetros Coulomb</div>
+        <div class="field">
+          <label>Ângulo do Tardoz β <span style="font-size:10px;color:var(--muted)">(° da vertical)</span></label>
+          <input type="number" id="inp-beta" value="90" min="75" max="110" step="1">
+          <div class="field-hint">90° = muro vertical</div>
+        </div>
+        <div class="field">
+          <label>Atrito Solo-Muro δ <span style="font-size:10px;color:var(--muted)">(°)</span></label>
+          <input type="number" id="inp-delta" value="20" min="0" max="40" step="1">
+          <div class="field-hint">Usual: δ = ⅔φ a φ</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Solo -->
+    <div id="tab-solo" class="tab-content">
+      <div class="section">
+        <div class="section-title">Parâmetros do Solo</div>
+        <div class="field">
+          <label>Peso Específico γ <span style="font-size:10px;color:var(--muted)">(kN/m³)</span></label>
+          <input type="number" id="inp-gamma" value="18" min="10" max="25" step="0.5">
+        </div>
+        <div class="field">
+          <label>Ângulo de Atrito φ <span style="font-size:10px;color:var(--muted)">(°)</span></label>
+          <input type="number" id="inp-phi" value="30" min="0" max="45" step="1">
+        </div>
+        <div class="field">
+          <label>Coesão c <span style="font-size:10px;color:var(--muted)">(kPa)</span></label>
+          <input type="number" id="inp-c" value="0" min="0" max="200" step="1" oninput="checkCohesion()">
+          <div class="field-hint blue hidden" id="hint-cohesion">Solo coesivo — fendas de tração possíveis</div>
+        </div>
+        <div class="formula-box">
+          <div>Ka = <span class="eq">(1−sinφ)/(1+sinφ)</span></div>
+          <div>Kp = <span class="eq">(1+sinφ)/(1−sinφ)</span></div>
+          <div>K₀ = <span class="eq">1 − sinφ</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Água -->
+    <div id="tab-agua" class="tab-content">
+      <div class="section">
+        <div class="section-title">Pressão de Água</div>
+        <div class="toggle-row" style="margin-bottom:12px">
+          <button class="toggle-opt"     id="btn-agua-sim" onclick="setWater(true)">Com Água</button>
+          <button class="toggle-opt sel" id="btn-agua-nao" onclick="setWater(false)">Sem Água</button>
+        </div>
+        <div id="water-fields" style="display:none">
+          <div class="field">
+            <label>Altura do NA hw <span style="font-size:10px;color:var(--muted)">(m)</span></label>
+            <input type="number" id="inp-hw" value="0" min="0" max="30" step="0.1">
+            <div class="field-hint">Medido da base do muro</div>
+          </div>
+          <div class="field">
+            <label>Peso Esp. Água γw <span style="font-size:10px;color:var(--muted)">(kN/m³)</span></label>
+            <input type="number" id="inp-gammaw" value="10" min="9.8" max="10.5" step="0.1">
+          </div>
+          <div class="formula-box">
+            <div>σw = <span class="eq">γw · z</span></div>
+            <div>Ew = <span class="eq">½ · γw · hw²</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Calc button -->
+    <div class="btn-wrap">
+      <button class="calc-btn" onclick="calculate()">▶ Calcular</button>
+    </div>
+  </aside>
+
+  <!-- ── Content ──────────────────────────────────────────────────────────── -->
+  <main class="content">
+
+    <!-- Empty state -->
+    <div class="no-result" id="no-result">
+      <div class="no-result-icon">⚙️</div>
+      <div class="no-result-text">Configure os parâmetros e clique em Calcular</div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-area" id="results-area">
+
+      <!-- Header row: badge + params + PDF btn -->
+      <div class="result-header-row">
+        <span class="badge badge-rankine" id="theory-badge">Teoria de Rankine</span>
+        <span class="result-params" id="result-params"></span>
+        <button class="pdf-btn ml-auto" id="pdf-btn" onclick="exportPDF()">📄 Exportar PDF</button>
+      </div>
+
+      <!-- Grid 1: Coeficientes -->
+      <div class="results-grid">
+        <div class="result-card yellow">
+          <div class="rc-label">Ka — Coef. Ativo</div>
+          <div class="rc-value" id="rc-Ka">—</div>
+          <div class="rc-unit">adimensional</div>
+        </div>
+        <div class="result-card green">
+          <div class="rc-label">Kp — Coef. Passivo</div>
+          <div class="rc-value" id="rc-Kp">—</div>
+          <div class="rc-unit">adimensional</div>
+        </div>
+        <div class="result-card">
+          <div class="rc-label">K₀ — Em Repouso</div>
+          <div class="rc-value" id="rc-K0">—</div>
+          <div class="rc-unit">adimensional</div>
+        </div>
+      </div>
+
+      <!-- Grid 2: Pressões -->
+      <div class="results-grid">
+        <div class="result-card yellow">
+          <div class="rc-label">σa — Press. Ativa (base)</div>
+          <div class="rc-value" id="rc-sigmaA">—</div>
+          <div class="rc-unit">kPa</div>
+        </div>
+        <div class="result-card green">
+          <div class="rc-label">σp — Press. Passiva (base)</div>
+          <div class="rc-value" id="rc-sigmaP">—</div>
+          <div class="rc-unit">kPa</div>
+        </div>
+        <div class="result-card">
+          <div class="rc-label">Nφ — Fator</div>
+          <div class="rc-value" id="rc-Nphi">—</div>
+          <div class="rc-unit">tg²(45+φ/2)</div>
+        </div>
+      </div>
+
+      <!-- Grid 3: Empuxos -->
+      <div class="results-grid" id="grid-empuxos">
+        <div class="result-card yellow">
+          <div class="rc-label">EA — Empuxo Ativo</div>
+          <div class="rc-value" id="rc-EA">—</div>
+          <div class="rc-unit" id="rc-EA-unit">kN/m</div>
+        </div>
+        <div class="result-card green">
+          <div class="rc-label">EP — Empuxo Passivo</div>
+          <div class="rc-value" id="rc-EP">—</div>
+          <div class="rc-unit" id="rc-EP-unit">kN/m</div>
+        </div>
+        <div class="result-card">
+          <div class="rc-label">E₀ — Emp. Repouso</div>
+          <div class="rc-value" id="rc-E0">—</div>
+          <div class="rc-unit">kN/m</div>
+        </div>
+        <div class="result-card red hidden" id="card-z0">
+          <div class="rc-label">z₀ — Fenda Tração</div>
+          <div class="rc-value" id="rc-z0">—</div>
+          <div class="rc-unit">m — profundidade crítica</div>
+        </div>
+        <div class="result-card blue hidden" id="card-ewater">
+          <div class="rc-label">Eágua — Emp. Água</div>
+          <div class="rc-value" id="rc-Ewater">—</div>
+          <div class="rc-unit" id="rc-Ewater-unit">kN/m</div>
+        </div>
+      </div>
+
+      <!-- Diagram -->
+      <div class="diagram-wrap">
+        <div class="diagram-title">Diagrama de Pressões Laterais</div>
+        <div class="canvas-wrap">
+          <canvas id="pressure-canvas" width="600" height="380"></canvas>
+        </div>
+        <div class="legend">
+          <span style="color:var(--accent)">██ Ativo (Ka)</span>
+          <span style="color:var(--accent3)">██ Passivo (Kp)</span>
+          <span id="legend-water" style="color:var(--accent2);display:none">── Nível d'Água</span>
+        </div>
+      </div>
+
+      <!-- Pressure table -->
+      <div class="diagram-wrap">
+        <div class="diagram-title">Distribuição de Pressões por Profundidade</div>
+        <table class="pressure-table">
+          <thead id="ptable-head"></thead>
+          <tbody id="ptable-body"></tbody>
+        </table>
+      </div>
+
+      <!-- Equations -->
+      <div class="diagram-wrap">
+        <div class="diagram-title">Equações Utilizadas</div>
+        <div class="formula-box" id="equations-box"></div>
+      </div>
+
+    </div><!-- /results-area -->
+  </main>
+</div>
+
+<!-- ── jsPDF (loaded on demand) ─────────────────────────────────────────────── -->
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════════════════════════════ */
+let theory    = 'rankine';
+let showWater = false;
+let lastResults = null;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UI HELPERS
+═══════════════════════════════════════════════════════════════════════════ */
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+
+function setTheory(t) {
+  theory = t;
+  document.getElementById('btn-rankine').classList.toggle('sel', t === 'rankine');
+  document.getElementById('btn-coulomb').classList.toggle('sel', t === 'coulomb');
+  document.getElementById('coulomb-extras').style.display = (t === 'coulomb') ? 'block' : 'none';
+}
+
+function setWater(val) {
+  showWater = val;
+  document.getElementById('btn-agua-sim').classList.toggle('sel',  val);
+  document.getElementById('btn-agua-nao').classList.toggle('sel', !val);
+  document.getElementById('water-fields').style.display = val ? 'block' : 'none';
+}
+
+function checkInclination() {
+  const i   = +document.getElementById('inp-i').value;
+  const phi = +document.getElementById('inp-phi').value;
+  document.getElementById('warn-incl').classList.toggle('hidden', !(i > phi));
+}
+
+function checkCohesion() {
+  const c = +document.getElementById('inp-c').value;
+  document.getElementById('hint-cohesion').classList.toggle('hidden', c <= 0);
+}
+
+function n(id) { return parseFloat(document.getElementById(id).value) || 0; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MATH
+═══════════════════════════════════════════════════════════════════════════ */
+const toRad = d => d * Math.PI / 180;
+
+function rankineKa(i, phi) {
+  const ir = toRad(i), pr = toRad(phi);
+  if (i === 0) return (1 - Math.sin(pr)) / (1 + Math.sin(pr));
+  const disc = Math.cos(ir)**2 - Math.cos(pr)**2;
+  if (disc < 0) return null;
+  return (Math.cos(ir) - Math.sqrt(disc)) / (Math.cos(ir) + Math.sqrt(disc));
+}
+
+function rankineKp(i, phi) {
+  const ir = toRad(i), pr = toRad(phi);
+  if (i === 0) return (1 + Math.sin(pr)) / (1 - Math.sin(pr));
+  const disc = Math.cos(ir)**2 - Math.cos(pr)**2;
+  if (disc < 0) return null;
+  return (Math.cos(ir) + Math.sqrt(disc)) / (Math.cos(ir) - Math.sqrt(disc));
+}
+
+function coulombKa(phi, beta, delta, i) {
+  const p=toRad(phi), b=toRad(beta), d=toRad(delta), ir=toRad(i);
+  const inner = (Math.sin(p+d)*Math.sin(p-ir)) / (Math.sin(d+b)*Math.cos(b-ir));
+  if (inner < 0) return null;
+  return Math.sin(p)**2 / (Math.sin(b) * (1 + Math.sqrt(inner))**2);
+}
+
+function coulombKp(phi, beta, delta, i) {
+  const p=toRad(phi), b=toRad(beta), d=toRad(delta), ir=toRad(i);
+  const inner = (Math.sin(p-d)*Math.sin(p+ir)) / (-Math.sin(d-b)*Math.cos(b-ir));
+  if (inner < 0 || !isFinite(inner)) return null;
+  return Math.sin(p)**2 / (Math.sin(b) * (1 - Math.sqrt(inner))**2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CALCULATE
+═══════════════════════════════════════════════════════════════════════════ */
+function calculate() {
+  const Hf    = n('inp-H');
+  const phif  = n('inp-phi');
+  const gf    = n('inp-gamma');
+  const cf    = n('inp-c');
+  const iff   = n('inp-i');
+  const hwf   = n('inp-hw');
+  const gfw   = n('inp-gammaw') || 10;
+  const deltaf= n('inp-delta');
+  const betaf = n('inp-beta') || 90;
+
+  if (Hf <= 0 || phif <= 0) {
+    alert('Informe valores válidos para H e φ.'); return;
+  }
+
+  const Nphi = Math.tan(toRad(45) + toRad(phif)/2) ** 2;
+
+  let Ka, Kp;
+  if (theory === 'rankine') {
+    Ka = rankineKa(iff, phif);
+    Kp = rankineKp(iff, phif);
+  } else {
+    Ka = coulombKa(phif, betaf, deltaf, iff);
+    const kpCalc = coulombKp(phif, betaf, deltaf, iff);
+    Kp = kpCalc !== null ? kpCalc : rankineKp(iff, phif);
+  }
+
+  if (Ka === null || Kp === null) {
+    alert('Combinação de parâmetros inválida (i > φ ou geometria impossível).'); return;
+  }
+
+  // Pressões na base
+  const sigmaA = gf * Hf * Ka - 2 * cf * Math.sqrt(1/Nphi);
+  const sigmaP = gf * Hf * Kp + 2 * cf * Math.sqrt(Nphi);
+
+  // Empuxos
+  let EA = 0.5 * gf * Hf**2 * Ka;
+  if (cf > 0) {
+    EA = 0.5 * gf * Hf**2 * (1/Nphi) - 2 * cf * Hf * Math.sqrt(1/Nphi);
+    EA = Math.max(EA, 0);
+  }
+  const EP = 0.5 * gf * Hf**2 * Kp + 2 * cf * Hf * Math.sqrt(Nphi);
+
+  // K0 e E0
+  const K0 = 1 - Math.sin(toRad(phif));
+  const E0 = 0.5 * gf * Hf**2 * K0;
+
+  // Fenda de tração
+  const z0 = cf > 0 ? (2 * cf * Math.sqrt(1/Nphi)) / gf : 0;
+
+  // Água
+  let Ewater = 0, sigmaWater = 0;
+  if (showWater && hwf > 0) {
+    const hwEff = Math.min(hwf, Hf);
+    sigmaWater = gfw * hwEff;
+    Ewater = 0.5 * gfw * hwEff**2;
+  }
+
+  const yA = Hf / 3;
+  const yP = Hf / 3;
+
+  // Tabela de pressões
+  const tablePoints = [0, 0.25, 0.5, 0.75, 1.0].map(frac => {
+    const z  = frac * Hf;
+    const sa = Math.max(gf * z * Ka - 2 * cf * Math.sqrt(1/Nphi), 0);
+    const sp = gf * z * Kp + 2 * cf * Math.sqrt(Nphi);
+    const sw = showWater && hwf > 0 && z >= (Hf - hwf) ? gfw * (z - (Hf - hwf)) : 0;
+    return { z: z.toFixed(2), sa: sa.toFixed(2), sp: sp.toFixed(2), sw: sw.toFixed(2) };
+  });
+
+  lastResults = {
+    Ka: +Ka.toFixed(4), Kp: +Kp.toFixed(4), K0: +K0.toFixed(4),
+    sigmaA: +sigmaA.toFixed(2), sigmaP: +sigmaP.toFixed(2),
+    EA: +EA.toFixed(2), EP: +EP.toFixed(2),
+    E0: +E0.toFixed(2), Ewater: +Ewater.toFixed(2), sigmaWater: +sigmaWater.toFixed(2),
+    z0: +z0.toFixed(3), yA, yP, Nphi,
+    tablePoints,
+    H: Hf, Ka, Kp, gamma: gf, c: cf, phi: phif, i: iff,
+    hw: hwf, gammaw: gfw, delta: deltaf, beta: betaf,
+  };
+
+  renderResults(lastResults);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RENDER RESULTS
+═══════════════════════════════════════════════════════════════════════════ */
+function renderResults(r) {
+  // Show/hide panels
+  document.getElementById('no-result').classList.add('hidden');
+  document.getElementById('results-area').classList.add('visible');
+
+  // Theory badge
+  const badge = document.getElementById('theory-badge');
+  badge.textContent = 'Teoria de ' + theory.charAt(0).toUpperCase() + theory.slice(1);
+  badge.className = 'badge ' + (theory === 'rankine' ? 'badge-rankine' : 'badge-coulomb');
+
+  // Params string
+  document.getElementById('result-params').textContent =
+    `H=${r.H}m · φ=${r.phi}° · γ=${r.gamma}kN/m³ · c=${r.c}kPa · i=${r.i}°`;
+
+  // Cards
+  document.getElementById('rc-Ka').textContent     = r.Ka;
+  document.getElementById('rc-Kp').textContent     = r.Kp;
+  document.getElementById('rc-K0').textContent     = r.K0;
+  document.getElementById('rc-sigmaA').textContent = r.sigmaA;
+  document.getElementById('rc-sigmaP').textContent = r.sigmaP;
+  document.getElementById('rc-Nphi').textContent   = r.Nphi.toFixed(3);
+  document.getElementById('rc-EA').textContent     = r.EA;
+  document.getElementById('rc-EA-unit').textContent= `kN/m · aplicado a H/3 = ${r.yA.toFixed(2)}m`;
+  document.getElementById('rc-EP').textContent     = r.EP;
+  document.getElementById('rc-EP-unit').textContent= `kN/m · aplicado a H/3 = ${r.yP.toFixed(2)}m`;
+  document.getElementById('rc-E0').textContent     = r.E0;
+
+  // Conditional cards
+  const cardZ0 = document.getElementById('card-z0');
+  if (r.c > 0) {
+    cardZ0.classList.remove('hidden');
+    document.getElementById('rc-z0').textContent = r.z0;
+  } else { cardZ0.classList.add('hidden'); }
+
+  const cardEw = document.getElementById('card-ewater');
+  if (showWater && r.Ewater > 0) {
+    cardEw.classList.remove('hidden');
+    document.getElementById('rc-Ewater').textContent = r.Ewater;
+    document.getElementById('rc-Ewater-unit').textContent = `kN/m · σw(base)=${r.sigmaWater}kPa`;
+  } else { cardEw.classList.add('hidden'); }
+
+  // Legend water
+  document.getElementById('legend-water').style.display = (showWater && r.hw > 0) ? 'inline' : 'none';
+
+  // Draw canvas
+  drawDiagram(r);
+
+  // Pressure table
+  buildTable(r);
+
+  // Equations
+  buildEquations(r);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CANVAS DIAGRAM
+═══════════════════════════════════════════════════════════════════════════ */
+function drawDiagram(r) {
+  const canvas = document.getElementById('pressure-canvas');
+  // Responsive width
+  const containerW = canvas.parentElement.clientWidth || 600;
+  canvas.width  = Math.min(containerW, 600);
+  canvas.height = 380;
+  const W = canvas.width, H = canvas.height;
+
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  ctx.fillStyle = '#161b22'; ctx.fillRect(0, 0, W, H);
+
+  const padL=80, padR=30, padT=40, padB=40;
+  const drawH = H - padT - padB;
+  const wallW = 16;
+  const wallX = padL + 70;
+
+  const { H:ht, Ka, Kp, gamma:gm, c, phi, Nphi } = r;
+  const hwf = r.hw, gfw = r.gammaw;
+
+  // Soil hatch (left of wall)
+  ctx.fillStyle = 'rgba(240,165,0,0.07)';
+  ctx.fillRect(0, padT, wallX, drawH);
+  for (let y = padT; y < padT + drawH; y += 12) {
+    ctx.strokeStyle = 'rgba(240,165,0,0.13)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(wallX, y + 20); ctx.stroke();
+  }
+
+  // Water level
+  if (showWater && hwf > 0) {
+    const wyRatio = (ht - hwf) / ht;
+    const wy = padT + wyRatio * drawH;
+    ctx.fillStyle = 'rgba(79,195,247,0.07)';
+    ctx.fillRect(0, wy, wallX, padT + drawH - wy);
+    ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(0, wy); ctx.lineTo(wallX, wy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#4fc3f7'; ctx.font = '10px Space Mono, monospace';
+    ctx.fillText('NA', 4, wy - 3);
+  }
+
+  // Wall
+  ctx.fillStyle = '#30363d'; ctx.fillRect(wallX, padT, wallW, drawH);
+  for (let y = padT; y < padT + drawH; y += 8) {
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'; ctx.fillRect(wallX, y, wallW, 4);
+  }
+  ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = 2; ctx.setLineDash([]);
+  ctx.strokeRect(wallX, padT, wallW, drawH);
+
+  const maxSigmaA = Math.max(gm * ht * Ka, 1);
+  const scale = 70 / maxSigmaA;
+
+  // Active pressure diagram
+  ctx.beginPath();
+  ctx.moveTo(wallX, padT);
+  for (let k = 0; k <= 60; k++) {
+    const z  = (k/60)*ht;
+    const sa = Math.max(gm * z * Ka - 2 * c * Math.sqrt(1/Nphi), 0);
+    const sx = wallX - sa * scale;
+    ctx.lineTo(Math.max(sx, 0), padT + (z/ht)*drawH);
+  }
+  ctx.lineTo(wallX, padT + drawH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(240,165,0,0.22)'; ctx.fill();
+  ctx.strokeStyle = '#f0a500'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let k = 0; k <= 60; k++) {
+    const z  = (k/60)*ht;
+    const sa = Math.max(gm * z * Ka - 2 * c * Math.sqrt(1/Nphi), 0);
+    const sx = wallX - sa * scale;
+    if (k===0) ctx.moveTo(wallX, padT + (z/ht)*drawH);
+    else ctx.lineTo(Math.max(sx, 0), padT + (z/ht)*drawH);
+  }
+  ctx.stroke();
+
+  // Passive pressure diagram
+  const maxSigmaP = Math.max(gm * ht * Kp, 1);
+  const scaleP = 60 / maxSigmaP;
+  ctx.beginPath();
+  ctx.moveTo(wallX + wallW, padT);
+  for (let k = 0; k <= 60; k++) {
+    const z  = (k/60)*ht;
+    const sp = gm * z * Kp + 2 * c * Math.sqrt(Nphi);
+    const sx = wallX + wallW + sp * scaleP;
+    ctx.lineTo(Math.min(sx, W - padR), padT + (z/ht)*drawH);
+  }
+  ctx.lineTo(wallX + wallW, padT + drawH);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(129,199,132,0.15)'; ctx.fill();
+  ctx.strokeStyle = '#81c784'; ctx.lineWidth = 2;
+  ctx.beginPath();
+  for (let k = 0; k <= 60; k++) {
+    const z  = (k/60)*ht;
+    const sp = gm * z * Kp + 2 * c * Math.sqrt(Nphi);
+    const sx = wallX + wallW + sp * scaleP;
+    if (k===0) ctx.moveTo(wallX + wallW, padT + (z/ht)*drawH);
+    else ctx.lineTo(Math.min(sx, W - padR), padT + (z/ht)*drawH);
+  }
+  ctx.stroke();
+
+  // Water pressure overlay
+  if (showWater && hwf > 0) {
+    const hwEff = Math.min(hwf, ht);
+    const wyStart = padT + ((ht - hwEff)/ht)*drawH;
+    const wscale  = scale * 0.5;
+    ctx.beginPath();
+    ctx.moveTo(wallX, wyStart);
+    ctx.lineTo(wallX - hwEff * gfw * wscale, padT + drawH);
+    ctx.lineTo(wallX, padT + drawH);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(79,195,247,0.18)'; ctx.fill();
+    ctx.strokeStyle = '#4fc3f7'; ctx.lineWidth = 1.5; ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    ctx.moveTo(wallX, wyStart);
+    ctx.lineTo(wallX - hwEff * gfw * wscale, padT + drawH);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+
+  // Depth axis ticks
+  const nTicks = 5;
+  for (let t = 0; t <= nTicks; t++) {
+    const y     = padT + (t/nTicks)*drawH;
+    const depth = (t/nTicks)*ht;
+    ctx.strokeStyle = '#30363d'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padL-5, y); ctx.lineTo(padL, y); ctx.stroke();
+    ctx.fillStyle = '#8b949e'; ctx.font = '10px Space Mono, monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(depth.toFixed(1)+'m', padL-7, y+3);
+  }
+
+  // Axis label
+  ctx.fillStyle = '#8b949e'; ctx.font = '10px Space Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.save(); ctx.translate(14, H/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('PROFUNDIDADE (m)', 0, 0); ctx.restore();
+
+  // Labels
+  ctx.fillStyle = '#f0a500'; ctx.font = 'bold 11px Barlow Condensed, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('ATIVO', wallX/2, padT - 10);
+  ctx.fillStyle = '#81c784';
+  ctx.fillText('PASSIVO', wallX + wallW + 40, padT - 10);
+
+  // Values at base
+  const sigmaABase = Math.max(gm*ht*Ka - 2*c*Math.sqrt(1/Nphi), 0);
+  const sigmaPBase = gm*ht*Kp + 2*c*Math.sqrt(Nphi);
+  ctx.fillStyle = '#f0a500'; ctx.font = '10px Space Mono, monospace';
+  ctx.textAlign = 'right';
+  ctx.fillText(sigmaABase.toFixed(1)+' kPa', wallX - 3, padT + drawH - 4);
+  ctx.fillStyle = '#81c784'; ctx.textAlign = 'left';
+  ctx.fillText(sigmaPBase.toFixed(1)+' kPa', wallX + wallW + 3, padT + drawH - 4);
+
+  // Base line + hatch
+  ctx.strokeStyle = '#30363d'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, padT+drawH); ctx.lineTo(W, padT+drawH); ctx.stroke();
+  for (let x = 0; x < W; x += 12) {
+    ctx.fillStyle = '#30363d';
+    ctx.beginPath(); ctx.moveTo(x, padT+drawH); ctx.lineTo(x+8, padT+drawH+8); ctx.lineTo(x, padT+drawH+8); ctx.fill();
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRESSURE TABLE
+═══════════════════════════════════════════════════════════════════════════ */
+function buildTable(r) {
+  const head = document.getElementById('ptable-head');
+  const body = document.getElementById('ptable-body');
+  const withW = showWater && r.hw > 0;
+
+  head.innerHTML = `<tr>
+    <th>z (m)</th>
+    <th>σa (kPa)</th>
+    <th>σp (kPa)</th>
+    ${withW ? '<th>σw (kPa)</th>' : ''}
+    <th>σa+σw (kPa)</th>
+  </tr>`;
+
+  body.innerHTML = r.tablePoints.map(row => `<tr>
+    <td>${row.z}</td>
+    <td style="color:var(--accent)">${row.sa}</td>
+    <td style="color:var(--accent3)">${row.sp}</td>
+    ${withW ? `<td style="color:var(--accent2)">${row.sw}</td>` : ''}
+    <td style="font-weight:700">${(parseFloat(row.sa)+parseFloat(row.sw)).toFixed(2)}</td>
+  </tr>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EQUATIONS BOX
+═══════════════════════════════════════════════════════════════════════════ */
+function buildEquations(r) {
+  const box = document.getElementById('equations-box');
+  let html = '';
+  if (theory === 'rankine') {
+    html += `<div><span class="eq">Ka = (cos i &minus; &radic;(cos&sup2;i &minus; cos&sup2;&phi;)) / (cos i + &radic;(cos&sup2;i &minus; cos&sup2;&phi;))</span></div>`;
+    html += `<div><span class="eq">Kp = (cos i + &radic;(cos&sup2;i &minus; cos&sup2;&phi;)) / (cos i &minus; &radic;(cos&sup2;i &minus; cos&sup2;&phi;))</span></div>`;
+    html += `<div><span class="eq">&sigma;a = &gamma;&middot;z&middot;Ka &minus; 2c&middot;&radic;(1/N&phi;)</span></div>`;
+    html += `<div><span class="eq">EA = &frac12;&middot;&gamma;&middot;H&sup2;&middot;(1/N&phi;) &minus; 2c&middot;H&middot;&radic;(1/N&phi;)</span></div>`;
+    html += `<div><span class="eq">EP = &frac12;&middot;&gamma;&middot;H&sup2;&middot;Kp + 2c&middot;H&middot;&radic;N&phi;</span></div>`;
+    if (r.c > 0) html += `<div><span class="eq">z&sub0; = 2c&middot;&radic;(1/N&phi;) / &gamma; = ${r.z0} m</span></div>`;
+  } else {
+    html += `<div><span class="eq">Ka (Coulomb) = sen&sup2;&phi; / [sen&beta;&middot;(1 + &radic;(sen(&phi;+&delta;)&middot;sen(&phi;&minus;i) / sen(&delta;+&beta;)&middot;cos(&beta;&minus;i)))&sup2;]</span></div>`;
+    html += `<div><span class="eq">EA = &frac12;&middot;&gamma;&middot;H&sup2;&middot;Ka</span></div>`;
+    html += `<div><span class="eq">EP = &frac12;&middot;&gamma;&middot;H&sup2;&middot;Kp</span></div>`;
+  }
+  html += `<div><span class="eq">K&sub0; = 1 &minus; sin&phi;</span> <span style="color:var(--muted)">(Jaky)</span></div>`;
+  html += `<div><span class="eq">E&sub0; = &frac12;&middot;&gamma;&middot;H&sup2;&middot;K&sub0; = ${r.E0} kN/m</span></div>`;
+  box.innerHTML = html;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXPORTAR / IMPRIMIR MEMÓRIA DE CÁLCULO
+   — Abre janela de impressão nativa. Sem CDN, funciona 100% offline.
+   — No diálogo de impressão escolha "Salvar como PDF" para gerar o arquivo.
+═══════════════════════════════════════════════════════════════════════════ */
+function exportPDF() {
+  if (!lastResults) return;
+  const r   = lastResults;
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pt-BR') + ' às ' +
+                  now.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  const theoryLabel = theory === 'rankine' ? 'Rankine' : 'Coulomb';
+  const withW = showWater && r.hw > 0;
+
+  /* ── equações por teoria ── */
+  const eqsHtml = theory === 'rankine' ? `
+    <div class="eq-line"><span class="eq-lbl">Ka</span> = (cos<em>i</em> − √(cos²<em>i</em> − cos²<em>φ</em>)) / (cos<em>i</em> + √(cos²<em>i</em> − cos²<em>φ</em>))</div>
+    <div class="eq-line"><span class="eq-lbl">Kp</span> = (cos<em>i</em> + √(cos²<em>i</em> − cos²<em>φ</em>)) / (cos<em>i</em> − √(cos²<em>i</em> − cos²<em>φ</em>))</div>
+    <div class="eq-line eq-note">[Terrapleno horizontal: Ka = (1−sen<em>φ</em>)/(1+sen<em>φ</em>) · Kp = (1+sen<em>φ</em>)/(1−sen<em>φ</em>)]</div>
+    <div class="eq-line"><span class="eq-lbl">σa</span> = γ·z·Ka − 2c·√(1/Nφ)</div>
+    <div class="eq-line"><span class="eq-lbl">σp</span> = γ·z·Kp + 2c·√Nφ</div>
+    <div class="eq-line"><span class="eq-lbl">EA</span> = ½·γ·H²·(1/Nφ) − 2c·H·√(1/Nφ)</div>
+    <div class="eq-line"><span class="eq-lbl">EP</span> = ½·γ·H²·Kp + 2c·H·√Nφ</div>
+    ${r.c > 0 ? `<div class="eq-line"><span class="eq-lbl">z₀</span> = 2c·√(1/Nφ) / γ = <strong>${r.z0} m</strong></div>` : ''}
+  ` : `
+    <div class="eq-line"><span class="eq-lbl">Ka</span> = sen²φ / [senβ·(1 + √(sen(φ+δ)·sen(φ−i) / sen(δ+β)·cos(β−i)))²]</div>
+    <div class="eq-line"><span class="eq-lbl">Kp</span> = sen²φ / [senβ·(1 − √(sen(φ−δ)·sen(φ+i) / sen(δ−β)·cos(β−i)))²]</div>
+    <div class="eq-line"><span class="eq-lbl">EA</span> = ½·γ·H²·Ka &nbsp;&nbsp;&nbsp; <span class="eq-lbl">EP</span> = ½·γ·H²·Kp</div>
+  `;
+
+  /* ── linhas da tabela de pressões ── */
+  const tableRowsHtml = r.tablePoints.map((row, idx) => `
+    <tr class="${idx % 2 === 0 ? 'tr-even' : 'tr-odd'}">
+      <td>${row.z}</td>
+      <td class="c-ativo">${row.sa}</td>
+      <td class="c-passivo">${row.sp}</td>
+      ${withW ? `<td class="c-agua">${row.sw}</td>` : ''}
+      <td class="c-total"><strong>${(parseFloat(row.sa)+parseFloat(row.sw)).toFixed(2)}</strong></td>
+    </tr>`).join('');
+
+  /* ── diagrama canvas → imagem ── */
+  const canvasImg = document.getElementById('pressure-canvas').toDataURL('image/png');
+
+  /* ── html completo da memória ── */
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>GeoEmpuxo — Memória de Cálculo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Barlow+Condensed:wght@300;400;600;700;900&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Barlow Condensed', sans-serif;
+    background: #fff; color: #1a1a2e;
+    font-size: 11pt; line-height: 1.5;
+  }
+
+  /* ── Layout geral ── */
+  .page { max-width: 210mm; margin: 0 auto; padding: 0; }
+
+  /* ── Cabeçalho ── */
+  .mc-header {
+    background: #0d1117; color: #f0a500;
+    padding: 18px 24px 14px;
+    border-bottom: 4px solid #f0a500;
+  }
+  .mc-header-top { display: flex; align-items: flex-start; justify-content: space-between; }
+  .mc-title { font-size: 28pt; font-weight: 900; letter-spacing: 3px; }
+  .mc-subtitle { font-size: 10pt; color: #8b949e; margin-top: 2px; font-family: 'Space Mono', monospace; letter-spacing: 0.5px; }
+  .mc-badge {
+    display: inline-block; padding: 3px 10px; border-radius: 3px; font-size: 8pt;
+    font-weight: 700; letter-spacing: 1px; text-transform: uppercase; font-family: 'Space Mono', monospace;
+    background: rgba(240,165,0,0.2); color: #f0a500; border: 1px solid rgba(240,165,0,0.4);
+  }
+  .mc-meta { margin-top: 10px; font-size: 8pt; color: #8b949e; font-family: 'Space Mono', monospace; display: flex; gap: 24px; flex-wrap: wrap; }
+  .mc-meta span strong { color: #e6edf3; }
+
+  /* ── Seções ── */
+  .sec {
+    padding: 14px 24px 10px;
+    border-bottom: 1px solid #e0e0e0;
+    break-inside: avoid;
+  }
+  .sec-title {
+    font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: 2px;
+    color: #f0a500; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .sec-title::before {
+    content: ''; display: block; width: 4px; height: 16px;
+    background: #f0a500; border-radius: 2px; flex-shrink: 0;
+  }
+
+  /* ── Dados de entrada ── */
+  .input-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 6px 24px;
+    background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px;
+    padding: 12px 16px;
+  }
+  .inp-row { display: flex; justify-content: space-between; align-items: baseline; padding: 2px 0; border-bottom: 1px dashed #e8e8e8; }
+  .inp-label { font-size: 9pt; color: #555; font-family: 'Space Mono', monospace; }
+  .inp-value { font-size: 10pt; font-weight: 700; color: #0d1117; font-family: 'Space Mono', monospace; }
+
+  /* ── Cards de coeficientes ── */
+  .coeff-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+  .coeff-card {
+    border-radius: 6px; padding: 10px 12px;
+    border-top: 3px solid #ccc; background: #f8f9fa; border: 1px solid #e0e0e0;
+  }
+  .coeff-card.amarelo { border-top: 3px solid #f0a500; }
+  .coeff-card.verde   { border-top: 3px solid #388e3c; }
+  .coeff-card.azul    { border-top: 3px solid #0288d1; }
+  .coeff-card.vermelho{ border-top: 3px solid #c62828; }
+  .cc-label { font-size: 8pt; color: #777; text-transform: uppercase; letter-spacing: 1px; font-family: 'Space Mono', monospace; }
+  .cc-value { font-size: 18pt; font-weight: 700; font-family: 'Space Mono', monospace; color: #0d1117; line-height: 1.2; }
+  .cc-unit  { font-size: 8pt; color: #999; margin-top: 2px; }
+  .cc-formula { font-size: 8pt; color: #555; font-style: italic; margin-top: 4px; }
+
+  /* ── Empuxos grid ── */
+  .emp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+
+  /* ── Tabela de pressões ── */
+  table.ptable {
+    width: 100%; border-collapse: collapse;
+    font-family: 'Space Mono', monospace; font-size: 9pt;
+  }
+  .ptable th {
+    background: #0d1117; color: #8b949e; padding: 6px 10px;
+    text-align: left; font-size: 8pt; letter-spacing: 1px; text-transform: uppercase;
+  }
+  .ptable td { padding: 6px 10px; border-top: 1px solid #e8e8e8; }
+  .tr-even td { background: #fafafa; }
+  .tr-odd  td { background: #f3f4f6; }
+  .c-ativo   { color: #b35c00; font-weight: 700; }
+  .c-passivo { color: #2e7d32; font-weight: 700; }
+  .c-agua    { color: #0277bd; font-weight: 700; }
+  .c-total   { color: #0d1117; }
+
+  /* ── Equações ── */
+  .eq-box {
+    background: #f0f7ff; border: 1px solid #b3d4f5; border-left: 4px solid #0288d1;
+    border-radius: 4px; padding: 12px 14px;
+  }
+  .eq-line { font-family: 'Space Mono', monospace; font-size: 9pt; color: #333; margin-bottom: 5px; }
+  .eq-line:last-child { margin-bottom: 0; }
+  .eq-lbl { font-weight: 700; color: #0277bd; }
+  .eq-note { color: #777; font-style: italic; font-size: 8pt; }
+
+  /* ── Diagrama ── */
+  .diagram-img { width: 100%; max-width: 480px; display: block; margin: 0 auto; border-radius: 4px; border: 1px solid #e0e0e0; }
+
+  /* ── Resumo final ── */
+  .summary-box {
+    background: #0d1117; color: #e6edf3;
+    border-radius: 6px; padding: 14px 18px;
+    font-family: 'Space Mono', monospace; font-size: 9pt; line-height: 2;
+  }
+  .sum-row { display: flex; gap: 8px; }
+  .sum-bullet { color: #f0a500; font-weight: 700; }
+
+  /* ── Rodapé ── */
+  .mc-footer {
+    margin-top: 0; padding: 10px 24px;
+    background: #0d1117; color: #555;
+    font-size: 8pt; font-family: 'Space Mono', monospace;
+    display: flex; justify-content: space-between; align-items: center;
+    border-top: 2px solid #f0a500;
+  }
+  .mc-footer span { color: #8b949e; }
+
+  /* ── Impressão ── */
+  @media print {
+    body { background: #fff; }
+    .page { max-width: 100%; }
+    .no-print { display: none !important; }
+    .sec { break-inside: avoid; }
+    .coeff-grid, .emp-grid { break-inside: avoid; }
+    @page { margin: 12mm 14mm; size: A4; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- ── Botão imprimir (some ao imprimir) ── -->
+  <div class="no-print" style="text-align:center; padding:12px; background:#f8f9fa; border-bottom:1px solid #ddd;">
+    <button onclick="window.print()" style="
+      padding:10px 32px; background:#f0a500; border:none; color:#000;
+      font-family:'Barlow Condensed',sans-serif; font-size:14pt; font-weight:700;
+      letter-spacing:1px; cursor:pointer; border-radius:4px;">
+      🖨️ Imprimir / Salvar como PDF
+    </button>
+    <span style="margin-left:16px; font-size:9pt; color:#777; font-family:monospace;">
+      No diálogo, escolha "Salvar como PDF" para gerar arquivo
+    </span>
+  </div>
+
+  <!-- ── Cabeçalho ── -->
+  <div class="mc-header">
+    <div class="mc-header-top">
+      <div>
+        <div class="mc-title">🏗️ GEOEMPUXO</div>
+        <div class="mc-subtitle">Memória de Cálculo — Pressões Laterais &amp; Empuxo de Terra</div>
+      </div>
+      <span class="mc-badge">Teoria de ${theoryLabel}</span>
+    </div>
+    <div class="mc-meta">
+      <span>Emitido em: <strong>${dateStr}</strong></span>
+      <span>Referência: <strong>NBR 11682 / Terzaghi &amp; Peck</strong></span>
+      <span>Arquivo: <strong>GeoEmpuxo_${theory}_H${r.H}m_fi${r.phi}.pdf</strong></span>
+    </div>
+  </div>
+
+  <!-- ── 1. Dados de Entrada ── -->
+  <div class="sec">
+    <div class="sec-title">1. Dados de Entrada</div>
+    <div class="input-grid">
+      <div class="inp-row"><span class="inp-label">Altura do Muro (H)</span><span class="inp-value">${r.H} m</span></div>
+      <div class="inp-row"><span class="inp-label">Inclinação terrapleno (i)</span><span class="inp-value">${r.i}°</span></div>
+      <div class="inp-row"><span class="inp-label">Peso específico (γ)</span><span class="inp-value">${r.gamma} kN/m³</span></div>
+      <div class="inp-row"><span class="inp-label">Ângulo de atrito (φ)</span><span class="inp-value">${r.phi}°</span></div>
+      <div class="inp-row"><span class="inp-label">Coesão (c)</span><span class="inp-value">${r.c} kPa</span></div>
+      <div class="inp-row"><span class="inp-label">Nφ = tg²(45+φ/2)</span><span class="inp-value">${r.Nphi.toFixed(4)}</span></div>
+      ${theory === 'coulomb' ? `
+      <div class="inp-row"><span class="inp-label">Ângulo do tardoz (β)</span><span class="inp-value">${r.beta}°</span></div>
+      <div class="inp-row"><span class="inp-label">Atrito solo-muro (δ)</span><span class="inp-value">${r.delta}°</span></div>` : ''}
+      <div class="inp-row"><span class="inp-label">Pressão de água</span><span class="inp-value">${withW ? `hw = ${r.hw} m | γw = ${r.gammaw} kN/m³` : 'Não considerada'}</span></div>
+      <div class="inp-row"><span class="inp-label">Teoria utilizada</span><span class="inp-value">${theoryLabel}</span></div>
+    </div>
+  </div>
+
+  <!-- ── 2. Coeficientes de Empuxo ── -->
+  <div class="sec">
+    <div class="sec-title">2. Coeficientes de Empuxo</div>
+    <div class="coeff-grid">
+      <div class="coeff-card amarelo">
+        <div class="cc-label">Ka — Coef. Ativo</div>
+        <div class="cc-value">${r.Ka}</div>
+        <div class="cc-unit">adimensional</div>
+        <div class="cc-formula">Ka = (1−senφ)/(1+senφ)</div>
+      </div>
+      <div class="coeff-card verde">
+        <div class="cc-label">Kp — Coef. Passivo</div>
+        <div class="cc-value">${r.Kp}</div>
+        <div class="cc-unit">adimensional</div>
+        <div class="cc-formula">Kp = (1+senφ)/(1−senφ)</div>
+      </div>
+      <div class="coeff-card azul">
+        <div class="cc-label">K₀ — Em Repouso</div>
+        <div class="cc-value">${r.K0}</div>
+        <div class="cc-unit">adimensional</div>
+        <div class="cc-formula">K₀ = 1 − senφ (Jaky)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. Pressões Laterais na Base ── -->
+  <div class="sec">
+    <div class="sec-title">3. Pressões Laterais na Base (z = H = ${r.H} m)</div>
+    <div class="emp-grid">
+      <div class="coeff-card amarelo">
+        <div class="cc-label">σa — Pressão Ativa</div>
+        <div class="cc-value">${r.sigmaA}</div>
+        <div class="cc-unit">kPa</div>
+        <div class="cc-formula">σa = γ·H·Ka − 2c·√(1/Nφ)</div>
+      </div>
+      <div class="coeff-card verde">
+        <div class="cc-label">σp — Pressão Passiva</div>
+        <div class="cc-value">${r.sigmaP}</div>
+        <div class="cc-unit">kPa</div>
+        <div class="cc-formula">σp = γ·H·Kp + 2c·√Nφ</div>
+      </div>
+      ${r.c > 0 ? `
+      <div class="coeff-card vermelho">
+        <div class="cc-label">z₀ — Fenda de Tração</div>
+        <div class="cc-value">${r.z0}</div>
+        <div class="cc-unit">m</div>
+        <div class="cc-formula">z₀ = 2c·√(1/Nφ) / γ</div>
+      </div>` : ''}
+      ${withW ? `
+      <div class="coeff-card azul">
+        <div class="cc-label">σw — Pressão Hidráulica</div>
+        <div class="cc-value">${r.sigmaWater}</div>
+        <div class="cc-unit">kPa  (na base)</div>
+        <div class="cc-formula">σw = γw · hw</div>
+      </div>` : ''}
+    </div>
+  </div>
+
+  <!-- ── 4. Empuxos Resultantes ── -->
+  <div class="sec">
+    <div class="sec-title">4. Empuxos Resultantes</div>
+    <div class="emp-grid">
+      <div class="coeff-card amarelo">
+        <div class="cc-label">EA — Empuxo Ativo</div>
+        <div class="cc-value">${r.EA}</div>
+        <div class="cc-unit">kN/m</div>
+        <div class="cc-formula">Aplicado a yA = H/3 = ${r.yA.toFixed(2)} m da base</div>
+      </div>
+      <div class="coeff-card verde">
+        <div class="cc-label">EP — Empuxo Passivo</div>
+        <div class="cc-value">${r.EP}</div>
+        <div class="cc-unit">kN/m</div>
+        <div class="cc-formula">Aplicado a yP = H/3 = ${r.yP.toFixed(2)} m da base</div>
+      </div>
+      <div class="coeff-card azul">
+        <div class="cc-label">E₀ — Empuxo Repouso</div>
+        <div class="cc-value">${r.E0}</div>
+        <div class="cc-unit">kN/m</div>
+        <div class="cc-formula">E₀ = ½·γ·H²·K₀</div>
+      </div>
+      ${withW ? `
+      <div class="coeff-card azul">
+        <div class="cc-label">Eágua — Emp. Hidráulico</div>
+        <div class="cc-value">${r.Ewater}</div>
+        <div class="cc-unit">kN/m</div>
+        <div class="cc-formula">Eágua = ½·γw·hw²</div>
+      </div>` : ''}
+    </div>
+  </div>
+
+  <!-- ── 5. Diagrama de Pressões ── -->
+  <div class="sec">
+    <div class="sec-title">5. Diagrama de Pressões Laterais</div>
+    <img class="diagram-img" src="${canvasImg}" alt="Diagrama de pressões laterais">
+    <div style="margin-top:8px; font-size:8pt; color:#777; text-align:center; font-family:monospace;">
+      <span style="color:#b35c00">■ Ativo (Ka)</span> &nbsp;&nbsp;
+      <span style="color:#2e7d32">■ Passivo (Kp)</span>
+      ${withW ? '&nbsp;&nbsp; <span style="color:#0277bd">── Nível d\'Água</span>' : ''}
+    </div>
+  </div>
+
+  <!-- ── 6. Tabela de Pressões por Profundidade ── -->
+  <div class="sec">
+    <div class="sec-title">6. Distribuição de Pressões por Profundidade</div>
+    <table class="ptable">
+      <thead>
+        <tr>
+          <th>z (m)</th>
+          <th>σa (kPa)</th>
+          <th>σp (kPa)</th>
+          ${withW ? '<th>σw (kPa)</th>' : ''}
+          <th>σa+σw (kPa)</th>
+        </tr>
+      </thead>
+      <tbody>${tableRowsHtml}</tbody>
+    </table>
+  </div>
+
+  <!-- ── 7. Equações Utilizadas ── -->
+  <div class="sec">
+    <div class="sec-title">7. Equações Utilizadas — Teoria de ${theoryLabel}</div>
+    <div class="eq-box">
+      ${eqsHtml}
+      <div class="eq-line" style="margin-top:6px; padding-top:6px; border-top:1px dashed #c5d8ed;">
+        <span class="eq-lbl">K₀</span> = 1 − sen<em>φ</em> &nbsp;(Jaky) &nbsp;&nbsp;&nbsp;
+        <span class="eq-lbl">E₀</span> = ½·γ·H²·K₀ = <strong>${r.E0} kN/m</strong>
+      </div>
+      ${withW ? `<div class="eq-line">
+        <span class="eq-lbl">Eágua</span> = ½·γw·hw² = ½ × ${r.gammaw} × ${r.hw}² = <strong>${r.Ewater} kN/m</strong>
+      </div>` : ''}
+    </div>
+  </div>
+
+  <!-- ── 8. Resumo Final ── -->
+  <div class="sec">
+    <div class="sec-title">8. Resumo dos Resultados</div>
+    <div class="summary-box">
+      <div class="sum-row"><span class="sum-bullet">▸</span><span>Ka = ${r.Ka} &nbsp;|&nbsp; Kp = ${r.Kp} &nbsp;|&nbsp; K₀ = ${r.K0}</span></div>
+      <div class="sum-row"><span class="sum-bullet">▸</span><span>σa(base) = ${r.sigmaA} kPa &nbsp;|&nbsp; σp(base) = ${r.sigmaP} kPa</span></div>
+      <div class="sum-row"><span class="sum-bullet">▸</span><span>EA = ${r.EA} kN/m &nbsp;(aplicado a H/3 = ${r.yA.toFixed(2)} m da base)</span></div>
+      <div class="sum-row"><span class="sum-bullet">▸</span><span>EP = ${r.EP} kN/m &nbsp;(aplicado a H/3 = ${r.yP.toFixed(2)} m da base)</span></div>
+      <div class="sum-row"><span class="sum-bullet">▸</span><span>E₀ = ${r.E0} kN/m</span></div>
+      ${withW ? `<div class="sum-row"><span class="sum-bullet">▸</span><span>Eágua = ${r.Ewater} kN/m &nbsp;|&nbsp; σw(base) = ${r.sigmaWater} kPa</span></div>` : ''}
+      ${r.c > 0 ? `<div class="sum-row"><span class="sum-bullet">▸</span><span>z₀ (fenda de tração) = ${r.z0} m</span></div>` : ''}
+    </div>
+  </div>
+
+  <!-- ── Rodapé ── -->
+  <div class="mc-footer">
+    <span>GeoEmpuxo — Cálculo de Contenção Geotécnica</span>
+    <span>Emitido em ${dateStr} &nbsp;|&nbsp; Teoria de ${theoryLabel} &nbsp;|&nbsp; H=${r.H}m · φ=${r.phi}° · γ=${r.gamma}kN/m³</span>
+  </div>
+
+</div>
+</body>
+</html>`;
+
+  /* ── abre janela de impressão ── */
+  const win = window.open('', '_blank', 'width=900,height=700');
+  if (!win) {
+    alert('O navegador bloqueou a janela popup. Permita popups para este site e tente novamente.');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+  win.onload = () => { win.focus(); win.print(); };
+}
+</script>
+</body>
+</html>
